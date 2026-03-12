@@ -111,18 +111,32 @@ async function startGameIfReady(code) {
                 checkSolves(room.code).catch((err) => {
                         io.to(room.code).emit("error", { message: `Polling error: ${err.message}` });
                 });
-        }, 10_000);
+        }, 60_000);
 
         // Server-side 15-minute game timer.
         room.timerTimeout = setTimeout(async () => {
                 const r = getRoom(code);
                 if (!r || r.status !== "in_progress") return;
-                r.status = "finished";
+
+                // Stop backup polling before final check.
                 if (r.pollInterval) clearInterval(r.pollInterval);
                 r.pollInterval = null;
                 r.timerTimeout = null;
-                emitRoomState(r);
-                io.to(r.code).emit("game:over", roomSummary(r));
+
+                // Final verification pass: fetch last 30 submissions for both handles.
+                try {
+                        await checkSolves(r.code, { count: 30 });
+                } catch (e) {
+                        io.to(r.code).emit("error", { message: `Final check error: ${e.message}` });
+                }
+
+                // checkSolves may have already finished the game if all problems were solved.
+                const rFinal = getRoom(code);
+                if (!rFinal || rFinal.status !== "in_progress") return;
+
+                rFinal.status = "finished";
+                emitRoomState(rFinal);
+                io.to(rFinal.code).emit("game:over", roomSummary(rFinal));
         }, 15 * 60 * 1000);
 
         // Run once immediately so the UI updates fast.
@@ -134,7 +148,7 @@ function allProblemsSolved(room) {
         return room.problems.every((p) => room.conquered[`${p.contestId}-${p.index}`]);
 }
 
-async function checkSolves(code) {
+async function checkSolves(code, { count = 5 } = {}) {
         const room = getRoom(code);
         if (!room) return;
         if (room.status !== "in_progress") return;
@@ -148,7 +162,7 @@ async function checkSolves(code) {
         const statuses = await Promise.all(
                 players.map(async (p) => {
                         try {
-                                return { ok: true, handle: p.handle, submissions: await fetchUserStatus(p.handle, { count: 100 }) };
+                                return { ok: true, handle: p.handle, submissions: await fetchUserStatus(p.handle, { count }) };
                         } catch (e) {
                                 return { ok: false, handle: p.handle, error: e.message, submissions: [] };
                         }
@@ -249,6 +263,27 @@ io.on("connection", (socket) => {
                 }
                 emitRoomState(res.room);
                 await startGameIfReady(res.room.code);
+        });
+
+        socket.on("room:check", async ({ code }) => {
+                const room = getRoom(code);
+                if (!room) return;
+                if (!socket.rooms.has(room.code)) return;
+                if (room.status !== "in_progress") return;
+
+                const COOLDOWN_MS = 5000;
+                const now = Date.now();
+                if (now - room.lastManualCheckAt < COOLDOWN_MS) return;
+
+                room.lastManualCheckAt = now;
+                // Broadcast cooldown end time so both clients disable the button in sync.
+                io.to(room.code).emit("room:check:cooldown", { disabledUntil: now + COOLDOWN_MS });
+
+                try {
+                        await checkSolves(room.code);
+                } catch (e) {
+                        io.to(room.code).emit("error", { message: `Manual check failed: ${e.message}` });
+                }
         });
 
         socket.on("room:leave", ({ code }) => {

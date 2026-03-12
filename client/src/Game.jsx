@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import confetti from "canvas-confetti";
+import { socket } from "./socket";
 
 function GameTimer({ endTime, isFinished }) {
   const [remaining, setRemaining] = useState(() => Math.max(0, endTime - Date.now()));
@@ -216,6 +217,7 @@ export default function Game({ room, onLeave }) {
   });
   const [codeBox, setCodeBox] = useState("");
   const [lang, setLang] = useState("cpp");
+  const [checkDisabled, setCheckDisabled] = useState(false);
 
   const lastConqueredKeysRef = useRef(new Set(Object.keys(room.conquered || {})));
   const lastStatusRef = useRef(room.status);
@@ -230,6 +232,16 @@ export default function Game({ room, onLeave }) {
     const winner = players.find((p) => p.id === room.winnerId);
     return winner?.handle || "Winner";
   }, [allSolved, room.winnerId, players]);
+
+  useEffect(() => {
+    const onCooldown = ({ disabledUntil }) => {
+      setCheckDisabled(true);
+      const remaining = Math.max(0, disabledUntil - Date.now());
+      setTimeout(() => setCheckDisabled(false), remaining);
+    };
+    socket.on("room:check:cooldown", onCooldown);
+    return () => socket.off("room:check:cooldown", onCooldown);
+  }, []);
 
   useEffect(() => {
     // Play effects when a new problem is conquered.
@@ -261,6 +273,10 @@ export default function Game({ room, onLeave }) {
     }
     lastStatusRef.current = room.status;
   }, [room.status, soundOn]);
+
+  const onCheckSubmissions = () => {
+    socket.emit("room:check", { code: room.code });
+  };
 
   const toggleSound = () => {
     setSoundOn((v) => {
@@ -333,6 +349,14 @@ export default function Game({ room, onLeave }) {
           <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
             Solved: {totalSolved}/3
           </div>
+          <button
+            onClick={onCheckSubmissions}
+            disabled={checkDisabled || room.status !== "in_progress"}
+            className="rounded-2xl bg-emerald-400/15 px-4 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-400/30 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Check latest submissions on Codeforces (5s cooldown)"
+          >
+            {checkDisabled ? "Checking…" : "Check submissions"}
+          </button>
           <button
             onClick={toggleSound}
             className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10 hover:bg-black/40"
