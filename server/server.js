@@ -93,7 +93,7 @@ async function startGameIfReady(code) {
   room.conquered = {};
 
   try {
-    room.problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
+    room.problems = await pickRandomProblemsByRatings([1400, 1500, 1600]);
   } catch (e) {
     room.status = "waiting";
     io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
