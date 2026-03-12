@@ -5,14 +5,14 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 
 const {
-  createRoom,
-  getRoom,
-  joinRoom,
-  reconnectPlayer,
-  markDisconnectedForSocket,
-  setHandle,
-  leaveAllRoomsForSocket,
-  roomToPublicState,
+        createRoom,
+        getRoom,
+        joinRoom,
+        reconnectPlayer,
+        markDisconnectedForSocket,
+        setHandle,
+        leaveAllRoomsForSocket,
+        roomToPublicState,
 } = require("./rooms");
 const { pickRandomProblemsByRatings, fetchUserStatus } = require("./codeforces");
 const { fetchProblemStatementHtml } = require("./statement");
@@ -23,258 +23,258 @@ const SERVE_CLIENT = String(process.env.SERVE_CLIENT || "false").toLowerCase() =
 
 const app = express();
 if (!SERVE_CLIENT) {
-  app.use(cors({ origin: CLIENT_ORIGIN }));
+        app.use(cors({ origin: CLIENT_ORIGIN }));
 }
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.get("/api/problem-statement", async (req, res) => {
-  try {
-    const contestId = Number(req.query.contestId);
-    const index = String(req.query.index || "").trim();
-    if (!contestId || !index) return res.status(400).json({ ok: false, error: "contestId and index are required." });
+        try {
+                const contestId = Number(req.query.contestId);
+                const index = String(req.query.index || "").trim();
+                if (!contestId || !index) return res.status(400).json({ ok: false, error: "contestId and index are required." });
 
-    const result = await fetchProblemStatementHtml({ contestId, index });
-    return res.json({ ok: true, contestId, index, html: result.html, cached: result.cached });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message || "Failed to fetch statement." });
-  }
+                const result = await fetchProblemStatementHtml({ contestId, index });
+                return res.json({ ok: true, contestId, index, html: result.html, cached: result.cached });
+        } catch (e) {
+                return res.status(500).json({ ok: false, error: e.message || "Failed to fetch statement." });
+        }
 });
 
 if (SERVE_CLIENT) {
-  const distPath = path.join(__dirname, "..", "client", "dist");
-  app.use(express.static(distPath));
-  // SPA fallback (Express v5-safe).
-  app.get(/.*/, (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+        const distPath = path.join(__dirname, "..", "client", "dist");
+        app.use(express.static(distPath));
+        // SPA fallback (Express v5-safe).
+        app.get(/.*/, (_req, res) => res.sendFile(path.join(distPath, "index.html")));
 }
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: SERVE_CLIENT ? undefined : { origin: CLIENT_ORIGIN } });
 
 function computeScores(room) {
-  const scoresById = {};
-  for (const p of room.players) scoresById[p.id] = 0;
+        const scoresById = {};
+        for (const p of room.players) scoresById[p.id] = 0;
 
-  for (const v of Object.values(room.conquered)) {
-    if (v?.byPlayerId && scoresById[v.byPlayerId] != null) scoresById[v.byPlayerId] += 1;
-  }
+        for (const v of Object.values(room.conquered)) {
+                if (v?.byPlayerId && scoresById[v.byPlayerId] != null) scoresById[v.byPlayerId] += 1;
+        }
 
-  return scoresById;
+        return scoresById;
 }
 
 function roomSummary(room) {
-  const state = roomToPublicState(room);
-  const scoresById = computeScores(room);
-  const playersWithScore = state.players.map((p) => ({ ...p, score: scoresById[p.id] || 0 }));
+        const state = roomToPublicState(room);
+        const scoresById = computeScores(room);
+        const playersWithScore = state.players.map((p) => ({ ...p, score: scoresById[p.id] || 0 }));
 
-  let winnerId = null;
-  if (room.status === "finished") {
-    const [a, b] = playersWithScore;
-    if (a && b) {
-      if (a.score > b.score) winnerId = a.id;
-      else if (b.score > a.score) winnerId = b.id;
-    }
-  }
+        let winnerId = null;
+        if (room.status === "finished") {
+                const [a, b] = playersWithScore;
+                if (a && b) {
+                        if (a.score > b.score) winnerId = a.id;
+                        else if (b.score > a.score) winnerId = b.id;
+                }
+        }
 
-  return { ...state, players: playersWithScore, winnerId };
+        return { ...state, players: playersWithScore, winnerId };
 }
 
 function emitRoomState(room) {
-  io.to(room.code).emit("room:state", roomSummary(room));
+        io.to(room.code).emit("room:state", roomSummary(room));
 }
 
 async function startGameIfReady(code) {
-  const room = getRoom(code);
-  if (!room) return;
-  if (room.status !== "waiting") return;
-  if (room.players.length !== 2) return;
-  if (!room.players.every((p) => p.handle)) return;
+        const room = getRoom(code);
+        if (!room) return;
+        if (room.status !== "waiting") return;
+        if (room.players.length !== 2) return;
+        if (!room.players.every((p) => p.handle)) return;
+        // changes
+        room.status = "in_progress";
+        room.conquered = {};
+        room.startTime = Date.now();
+        room.endTime = room.startTime + 45 * 60 * 1000;
 
-  room.status = "in_progress";
-  room.conquered = {};
-  room.startTime = Date.now();
-  room.endTime = room.startTime + 15 * 60 * 1000;
+        try {
+                room.problems = await pickRandomProblemsByRatings([1400, 1500, 1600]);
+        } catch (e) {
+                room.status = "waiting";
+                room.startTime = null;
+                room.endTime = null;
+                io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
+                return;
+        }
 
-  try {
-    room.problems = await pickRandomProblemsByRatings([1400, 1500, 1600]);
-  } catch (e) {
-    room.status = "waiting";
-    room.startTime = null;
-    room.endTime = null;
-    io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
-    return;
-  }
+        emitRoomState(room);
+        io.to(room.code).emit("game:start", roomSummary(room));
 
-  emitRoomState(room);
-  io.to(room.code).emit("game:start", roomSummary(room));
+        room.pollInterval = setInterval(() => {
+                checkSolves(room.code).catch((err) => {
+                        io.to(room.code).emit("error", { message: `Polling error: ${err.message}` });
+                });
+        }, 10_000);
 
-  room.pollInterval = setInterval(() => {
-    checkSolves(room.code).catch((err) => {
-      io.to(room.code).emit("error", { message: `Polling error: ${err.message}` });
-    });
-  }, 10_000);
+        // Server-side 15-minute game timer.
+        room.timerTimeout = setTimeout(async () => {
+                const r = getRoom(code);
+                if (!r || r.status !== "in_progress") return;
+                r.status = "finished";
+                if (r.pollInterval) clearInterval(r.pollInterval);
+                r.pollInterval = null;
+                r.timerTimeout = null;
+                emitRoomState(r);
+                io.to(r.code).emit("game:over", roomSummary(r));
+        }, 15 * 60 * 1000);
 
-  // Server-side 15-minute game timer.
-  room.timerTimeout = setTimeout(async () => {
-    const r = getRoom(code);
-    if (!r || r.status !== "in_progress") return;
-    r.status = "finished";
-    if (r.pollInterval) clearInterval(r.pollInterval);
-    r.pollInterval = null;
-    r.timerTimeout = null;
-    emitRoomState(r);
-    io.to(r.code).emit("game:over", roomSummary(r));
-  }, 15 * 60 * 1000);
-
-  // Run once immediately so the UI updates fast.
-  await checkSolves(room.code);
+        // Run once immediately so the UI updates fast.
+        await checkSolves(room.code);
 }
 
 function allProblemsSolved(room) {
-  if (!room.problems) return false;
-  return room.problems.every((p) => room.conquered[`${p.contestId}-${p.index}`]);
+        if (!room.problems) return false;
+        return room.problems.every((p) => room.conquered[`${p.contestId}-${p.index}`]);
 }
 
 async function checkSolves(code) {
-  const room = getRoom(code);
-  if (!room) return;
-  if (room.status !== "in_progress") return;
-  if (!room.problems || room.players.length !== 2) return;
+        const room = getRoom(code);
+        if (!room) return;
+        if (room.status !== "in_progress") return;
+        if (!room.problems || room.players.length !== 2) return;
 
-  const problemsByKey = {};
-  for (const p of room.problems) problemsByKey[`${p.contestId}-${p.index}`] = p;
+        const problemsByKey = {};
+        for (const p of room.problems) problemsByKey[`${p.contestId}-${p.index}`] = p;
 
-  const players = room.players.map((p) => ({ ...p }));
+        const players = room.players.map((p) => ({ ...p }));
 
-  const statuses = await Promise.all(
-    players.map(async (p) => {
-      try {
-        return { ok: true, handle: p.handle, submissions: await fetchUserStatus(p.handle, { count: 100 }) };
-      } catch (e) {
-        return { ok: false, handle: p.handle, error: e.message, submissions: [] };
-      }
-    }),
-  );
+        const statuses = await Promise.all(
+                players.map(async (p) => {
+                        try {
+                                return { ok: true, handle: p.handle, submissions: await fetchUserStatus(p.handle, { count: 100 }) };
+                        } catch (e) {
+                                return { ok: false, handle: p.handle, error: e.message, submissions: [] };
+                        }
+                }),
+        );
 
-  for (const s of statuses) {
-    if (!s.ok) io.to(room.code).emit("error", { message: `CF handle "${s.handle}": ${s.error}` });
-  }
+        for (const s of statuses) {
+                if (!s.ok) io.to(room.code).emit("error", { message: `CF handle "${s.handle}": ${s.error}` });
+        }
 
-  // Build best (earliest) OK submission per player per target problem.
-  const earliestOk = new Map(); // key -> [{playerId, handle, t}]
-  for (let i = 0; i < players.length; i++) {
-    const p = players[i];
-    const subs = statuses[i].submissions || [];
+        // Build best (earliest) OK submission per player per target problem.
+        const earliestOk = new Map(); // key -> [{playerId, handle, t}]
+        for (let i = 0; i < players.length; i++) {
+                const p = players[i];
+                const subs = statuses[i].submissions || [];
 
-    for (const sub of subs) {
-      if (sub.verdict !== "OK") continue;
-      const pr = sub.problem;
-      if (!pr?.contestId || !pr?.index) continue;
-      const key = `${pr.contestId}-${pr.index}`;
-      if (!problemsByKey[key]) continue;
+                for (const sub of subs) {
+                        if (sub.verdict !== "OK") continue;
+                        const pr = sub.problem;
+                        if (!pr?.contestId || !pr?.index) continue;
+                        const key = `${pr.contestId}-${pr.index}`;
+                        if (!problemsByKey[key]) continue;
 
-      const t = sub.creationTimeSeconds || 0;
-      const list = earliestOk.get(key) || [];
+                        const t = sub.creationTimeSeconds || 0;
+                        const list = earliestOk.get(key) || [];
 
-      const existingIdx = list.findIndex((x) => x.playerId === p.id);
-      if (existingIdx === -1) list.push({ playerId: p.id, handle: p.handle, t });
-      else if (t && t < list[existingIdx].t) list[existingIdx] = { playerId: p.id, handle: p.handle, t };
+                        const existingIdx = list.findIndex((x) => x.playerId === p.id);
+                        if (existingIdx === -1) list.push({ playerId: p.id, handle: p.handle, t });
+                        else if (t && t < list[existingIdx].t) list[existingIdx] = { playerId: p.id, handle: p.handle, t };
 
-      earliestOk.set(key, list);
-    }
-  }
+                        earliestOk.set(key, list);
+                }
+        }
 
-  let changed = false;
-  for (const key of Object.keys(problemsByKey)) {
-    if (room.conquered[key]) continue;
-    const candidates = earliestOk.get(key) || [];
-    if (candidates.length === 0) continue;
-    candidates.sort((a, b) => (a.t || 0) - (b.t || 0));
-    const winner = candidates[0];
-    room.conquered[key] = {
-      byPlayerId: winner.playerId,
-      byHandle: winner.handle,
-      atCreationTimeSeconds: winner.t || null,
-    };
-    changed = true;
-  }
+        let changed = false;
+        for (const key of Object.keys(problemsByKey)) {
+                if (room.conquered[key]) continue;
+                const candidates = earliestOk.get(key) || [];
+                if (candidates.length === 0) continue;
+                candidates.sort((a, b) => (a.t || 0) - (b.t || 0));
+                const winner = candidates[0];
+                room.conquered[key] = {
+                        byPlayerId: winner.playerId,
+                        byHandle: winner.handle,
+                        atCreationTimeSeconds: winner.t || null,
+                };
+                changed = true;
+        }
 
-  if (changed) emitRoomState(room);
+        if (changed) emitRoomState(room);
 
-  if (allProblemsSolved(room)) {
-    room.status = "finished";
-    if (room.pollInterval) clearInterval(room.pollInterval);
-    room.pollInterval = null;
-    if (room.timerTimeout) clearTimeout(room.timerTimeout);
-    room.timerTimeout = null;
-    emitRoomState(room);
-    io.to(room.code).emit("game:end", roomSummary(room));
-  }
+        if (allProblemsSolved(room)) {
+                room.status = "finished";
+                if (room.pollInterval) clearInterval(room.pollInterval);
+                room.pollInterval = null;
+                if (room.timerTimeout) clearTimeout(room.timerTimeout);
+                room.timerTimeout = null;
+                emitRoomState(room);
+                io.to(room.code).emit("game:end", roomSummary(room));
+        }
 }
 
 io.on("connection", (socket) => {
-  socket.on("room:create", () => {
-    const { room, token } = createRoom(socket.id);
-    socket.join(room.code);
-    socket.emit("room:created", { code: room.code, token });
-    emitRoomState(room);
-  });
+        socket.on("room:create", () => {
+                const { room, token } = createRoom(socket.id);
+                socket.join(room.code);
+                socket.emit("room:created", { code: room.code, token });
+                emitRoomState(room);
+        });
 
-  socket.on("room:join", ({ code }) => {
-    const res = joinRoom(code, socket.id);
-    if (!res.ok) {
-      socket.emit("error", { message: res.error });
-      return;
-    }
-    socket.join(res.room.code);
-    socket.emit("room:joined", { code: res.room.code, token: res.token });
-    emitRoomState(res.room);
-  });
+        socket.on("room:join", ({ code }) => {
+                const res = joinRoom(code, socket.id);
+                if (!res.ok) {
+                        socket.emit("error", { message: res.error });
+                        return;
+                }
+                socket.join(res.room.code);
+                socket.emit("room:joined", { code: res.room.code, token: res.token });
+                emitRoomState(res.room);
+        });
 
-  socket.on("room:reconnect", async ({ code, token, handle }) => {
-    const res = reconnectPlayer(code, token, socket.id, handle);
-    if (!res.ok) {
-      socket.emit("error", { message: res.error });
-      return;
-    }
-    socket.join(res.room.code);
-    emitRoomState(res.room);
-    await startGameIfReady(res.room.code);
-  });
+        socket.on("room:reconnect", async ({ code, token, handle }) => {
+                const res = reconnectPlayer(code, token, socket.id, handle);
+                if (!res.ok) {
+                        socket.emit("error", { message: res.error });
+                        return;
+                }
+                socket.join(res.room.code);
+                emitRoomState(res.room);
+                await startGameIfReady(res.room.code);
+        });
 
-  socket.on("player:setHandle", async ({ code, handle }) => {
-    const res = setHandle(code, socket.id, handle);
-    if (!res.ok) {
-      socket.emit("error", { message: res.error });
-      return;
-    }
-    emitRoomState(res.room);
-    await startGameIfReady(res.room.code);
-  });
+        socket.on("player:setHandle", async ({ code, handle }) => {
+                const res = setHandle(code, socket.id, handle);
+                if (!res.ok) {
+                        socket.emit("error", { message: res.error });
+                        return;
+                }
+                emitRoomState(res.room);
+                await startGameIfReady(res.room.code);
+        });
 
-  socket.on("room:leave", ({ code }) => {
-    const room = getRoom(code);
-    if (room) {
-      socket.leave(room.code);
-      const touched = leaveAllRoomsForSocket(socket.id);
-      for (const c of touched) {
-        const r = getRoom(c);
-        if (r) emitRoomState(r);
-      }
-    }
-  });
+        socket.on("room:leave", ({ code }) => {
+                const room = getRoom(code);
+                if (room) {
+                        socket.leave(room.code);
+                        const touched = leaveAllRoomsForSocket(socket.id);
+                        for (const c of touched) {
+                                const r = getRoom(c);
+                                if (r) emitRoomState(r);
+                        }
+                }
+        });
 
-  socket.on("disconnect", () => {
-    // On refresh / transient disconnect, keep the player slot and allow reconnect via token.
-    const touched = markDisconnectedForSocket(socket.id);
-    for (const c of touched) {
-      const r = getRoom(c);
-      if (r) emitRoomState(r);
-    }
-  });
+        socket.on("disconnect", () => {
+                // On refresh / transient disconnect, keep the player slot and allow reconnect via token.
+                const touched = markDisconnectedForSocket(socket.id);
+                for (const c of touched) {
+                        const r = getRoom(c);
+                        if (r) emitRoomState(r);
+                }
+        });
 });
 
 server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`CF Blitz server listening on http://localhost:${PORT}`);
+        // eslint-disable-next-line no-console
+        console.log(`CF Blitz server listening on http://localhost:${PORT}`);
 });
 
