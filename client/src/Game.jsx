@@ -4,16 +4,38 @@ import "katex/dist/katex.min.css";
 import confetti from "canvas-confetti";
 import { socket } from "./socket";
 
-function GameTimer({ endTime, isFinished }) {
+function GameTimer({ endTime, isFinished, soundOn }) {
   const [remaining, setRemaining] = useState(() => Math.max(0, endTime - Date.now()));
+  const warnedRef = useRef({ fiveMin: false, oneMin: false });
 
   useEffect(() => {
     if (!endTime) return;
-    const tick = () => setRemaining(Math.max(0, endTime - Date.now()));
+    warnedRef.current = { fiveMin: false, oneMin: false };
+    const pendingTimeouts = [];
+    const tick = () => {
+      const r = Math.max(0, endTime - Date.now());
+      setRemaining(r);
+      if (soundOn && r > 0) {
+        if (r <= 5 * 60_000 && !warnedRef.current.fiveMin) {
+          warnedRef.current.fiveMin = true;
+          beep({ frequency: 660, durationMs: 100 });
+          pendingTimeouts.push(window.setTimeout(() => beep({ frequency: 660, durationMs: 100 }), 140));
+        }
+        if (r <= 60_000 && !warnedRef.current.oneMin) {
+          warnedRef.current.oneMin = true;
+          beep({ frequency: 880, durationMs: 120 });
+          pendingTimeouts.push(window.setTimeout(() => beep({ frequency: 880, durationMs: 120 }), 160));
+          pendingTimeouts.push(window.setTimeout(() => beep({ frequency: 660, durationMs: 200 }), 320));
+        }
+      }
+    };
     tick();
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [endTime]);
+    return () => {
+      clearInterval(id);
+      for (const t of pendingTimeouts) clearTimeout(t);
+    };
+  }, [endTime, soundOn]);
 
   if (!endTime) return null;
 
@@ -345,7 +367,7 @@ export default function Game({ room, onLeave }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} />
+          <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} soundOn={soundOn} />
           <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
             Solved: {totalSolved}/3
           </div>

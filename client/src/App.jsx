@@ -68,6 +68,8 @@ export default function App() {
       saveSession({ code, token, handle: "" });
     });
     socket.on("room:state", onState);
+    socket.on("game:start", onState);
+    socket.on("game:end", onState);
     socket.on("game:over", onState);
     socket.on("error", onError);
 
@@ -76,6 +78,8 @@ export default function App() {
       socket.off("room:created");
       socket.off("room:joined");
       socket.off("room:state", onState);
+      socket.off("game:start", onState);
+      socket.off("game:end", onState);
       socket.off("game:over", onState);
       socket.off("error", onError);
     };
