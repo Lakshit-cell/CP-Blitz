@@ -81,7 +81,7 @@ export default function Room({ room, myId, onSetHandle, onLeave, defaultHandle =
             Confirm handle
           </button>
         </div>
-        <div className="mt-3 text-xs text-slate-300">Tip: solves update every ~10 seconds. Refresh is safe.</div>
+        <div className="mt-3 text-xs text-slate-300"></div>
       </div>
     </div>
   );

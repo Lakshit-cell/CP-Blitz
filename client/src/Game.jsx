@@ -418,7 +418,7 @@ export default function Game({ room, onLeave }) {
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Arena Console</div>
             <div className="mt-1 text-sm font-extrabold text-slate-100">Write code here, then open CF submit</div>
             <div className="mt-1 text-xs text-slate-300">
-              Note: actual submission needs you to be logged in on Codeforces (we can’t auto-submit without a login system).
+              Note: actual submission needs you to be logged in on Codeforces (we can't auto-submit without a login system).
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

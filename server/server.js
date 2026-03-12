@@ -92,10 +92,10 @@ async function startGameIfReady(code) {
         room.status = "in_progress";
         room.conquered = {};
         room.startTime = Date.now();
-        room.endTime = room.startTime + 45 * 60 * 1000;
+        room.endTime = room.startTime + 15 * 60 * 1000;
 
         try {
-                room.problems = await pickRandomProblemsByRatings([1400, 1500, 1600]);
+                room.problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
         } catch (e) {
                 room.status = "waiting";
                 room.startTime = null;

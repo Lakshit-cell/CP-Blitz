@@ -133,7 +133,7 @@ export default function App() {
               <div className="text-sm font-semibold text-slate-400">CF Blitz</div>
               <div className="mt-0.5 text-3xl font-extrabold text-slate-50 arcade-title">Arcade Blitz Duel</div>
               <div className="mt-1 text-sm text-slate-300">
-                Two players. One room. Three problems (800/1000/1200). First accepted wins each card.
+                Two players. One room. Three problems. First accepted wins each card.
               </div>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function App() {
                   Join
                 </button>
               </div>
-              <div className="mt-4 text-xs text-slate-400">You can run ~30 rooms in parallel on one host.</div>
+              <div className="mt-4 text-xs text-slate-400"></div>
             </div>
           </div>
         )}
@@ -217,7 +217,7 @@ export default function App() {
         {stage === "game" && room && <div className="mt-10"><Game room={room} onLeave={leave} /></div>}
 
         <div className="mt-14 text-center text-xs text-slate-400">
-          Hosted locally • In-memory rooms • No login • Live updates via Socket.io
+
         </div>
       </div>
     </div>
