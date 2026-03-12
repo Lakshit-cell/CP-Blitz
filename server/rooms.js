@@ -25,6 +25,9 @@ function createRoom(socketId) {
     problems: null, // [{rating, contestId, index, name}]
     conquered: {}, // key -> { byPlayerId, byHandle, atCreationTimeSeconds }
     pollInterval: null,
+    startTime: null,
+    endTime: null,
+    timerTimeout: null,
   };
 
   rooms.set(code, room);
@@ -66,6 +69,7 @@ function leaveAllRoomsForSocket(socketId) {
       room.players.splice(idx, 1);
       if (room.players.length === 0) {
         if (room.pollInterval) clearInterval(room.pollInterval);
+        if (room.timerTimeout) clearTimeout(room.timerTimeout);
         rooms.delete(room.code);
       } else {
         // If a player leaves mid-game, end the game.
@@ -73,6 +77,8 @@ function leaveAllRoomsForSocket(socketId) {
           room.status = "finished";
           if (room.pollInterval) clearInterval(room.pollInterval);
           room.pollInterval = null;
+          if (room.timerTimeout) clearTimeout(room.timerTimeout);
+          room.timerTimeout = null;
         }
         touched.add(room.code);
       }
@@ -130,6 +136,7 @@ function roomToPublicState(room) {
     players: room.players.map((p) => ({ id: p.id, handle: p.handle, disconnected: Boolean(p.disconnectedAt) })),
     problems,
     conquered: room.conquered,
+    endTime: room.endTime,
   };
 }
 

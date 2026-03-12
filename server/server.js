@@ -91,11 +91,15 @@ async function startGameIfReady(code) {
 
   room.status = "in_progress";
   room.conquered = {};
+  room.startTime = Date.now();
+  room.endTime = room.startTime + 15 * 60 * 1000;
 
   try {
     room.problems = await pickRandomProblemsByRatings([1400, 1500, 1600]);
   } catch (e) {
     room.status = "waiting";
+    room.startTime = null;
+    room.endTime = null;
     io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
     return;
   }
@@ -108,6 +112,18 @@ async function startGameIfReady(code) {
       io.to(room.code).emit("error", { message: `Polling error: ${err.message}` });
     });
   }, 10_000);
+
+  // Server-side 15-minute game timer.
+  room.timerTimeout = setTimeout(async () => {
+    const r = getRoom(code);
+    if (!r || r.status !== "in_progress") return;
+    r.status = "finished";
+    if (r.pollInterval) clearInterval(r.pollInterval);
+    r.pollInterval = null;
+    r.timerTimeout = null;
+    emitRoomState(r);
+    io.to(r.code).emit("game:over", roomSummary(r));
+  }, 15 * 60 * 1000);
 
   // Run once immediately so the UI updates fast.
   await checkSolves(room.code);
@@ -188,6 +204,8 @@ async function checkSolves(code) {
     room.status = "finished";
     if (room.pollInterval) clearInterval(room.pollInterval);
     room.pollInterval = null;
+    if (room.timerTimeout) clearTimeout(room.timerTimeout);
+    room.timerTimeout = null;
     emitRoomState(room);
     io.to(room.code).emit("game:end", roomSummary(room));
   }
