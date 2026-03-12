@@ -28,6 +28,7 @@ function createRoom(socketId) {
     startTime: null,
     endTime: null,
     timerTimeout: null,
+    lastManualCheckAt: 0, // timestamp of last manual check (room-wide cooldown)
   };
 
   rooms.set(code, room);
