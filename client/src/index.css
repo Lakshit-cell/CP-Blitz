@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Arcade theme */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: radial-gradient(1200px 600px at 20% 10%, rgba(124, 58, 237, 0.25), transparent 60%),
+    radial-gradient(900px 500px at 80% 20%, rgba(34, 211, 238, 0.18), transparent 55%),
+    radial-gradient(1000px 700px at 50% 90%, rgba(16, 185, 129, 0.12), transparent 60%),
+    #070A12;
+}
+
+.arcade-panel {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(2, 6, 23, 0.65));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35) inset, 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.arcade-glow {
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.22) inset, 0 0 28px rgba(99, 102, 241, 0.18);
+}
+
+.arcade-title {
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.22), 0 0 36px rgba(124, 58, 237, 0.12);
+}
+
+.vs-banner {
+  position: relative;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.14), rgba(124, 58, 237, 0.14));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.12);
+}
+.vs-banner::before {
+  content: "";
+  position: absolute;
+  inset: -40% -60%;
+  background: radial-gradient(circle at 30% 40%, rgba(34, 211, 238, 0.25), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(124, 58, 237, 0.25), transparent 45%);
+  animation: vsPulse 2.6s ease-in-out infinite;
+}
+.vs-banner > span {
+  position: relative;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: rgba(226, 232, 240, 0.95);
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.18), 0 0 22px rgba(124, 58, 237, 0.12);
+}
+@keyframes vsPulse {
+  0% {
+    transform: translateX(-6%) translateY(2%) rotate(-2deg);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(6%) translateY(-2%) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-6%) translateY(2%) rotate(-2deg);
+    opacity: 0.85;
+  }
+}
+
+.neon-pill {
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
+}
+
+.rating-800 {
+  border-color: rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.12);
+}
+.rating-1000 {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.12);
+}
+.rating-1200 {
+  border-color: rgba(124, 58, 237, 0.35);
+  box-shadow: 0 0 22px rgba(124, 58, 237, 0.12);
+}
+
+/* Minimal styling for Codeforces statement HTML */
+.cf-statement .header {
+  margin-bottom: 1rem;
+}
+.cf-statement .header .title {
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1.5rem;
+}
+.cf-statement {
+  line-height: 1.6;
+}
+.cf-statement a {
+  color: rgb(29 78 216);
+  font-weight: 600;
+}
+.cf-statement a:hover {
+  color: rgb(30 64 175);
+}
+.cf-statement .time-limit,
+.cf-statement .memory-limit,
+.cf-statement .input-file,
+.cf-statement .output-file {
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+.cf-statement p {
+  margin: 0.75rem 0;
+}
+.cf-statement pre {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: auto;
+  color: rgb(226 232 240);
+}
+.cf-statement .section-title {
+  margin-top: 1rem;
+  font-weight: 700;
+}
+.cf-statement .sample-tests {
+  margin-top: 1rem;
+}
+.cf-statement .sample-tests .input,
+.cf-statement .sample-tests .output {
+  margin-top: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+  padding: 0.75rem;
+}
+.cf-statement .sample-tests .input .title,
+.cf-statement .sample-tests .output .title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+  margin-bottom: 0.5rem;
+}
+.cf-statement .sample-tests .input pre,
+.cf-statement .sample-tests .output pre {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgb(226 232 240);
+}
+.cf-statement img {
+  max-width: 100%;
+  height: auto;
+}
