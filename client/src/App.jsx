@@ -131,11 +131,11 @@ export default function App() {
         <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-2xl bg-black/40 text-cyan-200 shadow-sm ring-1 ring-white/10 arcade-glow">
-              <span className="text-sm font-extrabold tracking-wide">CF</span>
+              <span className="text-sm font-extrabold tracking-wide">CP</span>
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-400">CF Blitz</div>
-              <div className="mt-0.5 text-3xl font-extrabold text-slate-50 arcade-title">Arcade Blitz Duel</div>
+              <div className="text-sm font-semibold text-slate-400">CP Blitz</div>
+              <div className="mt-0.5 text-3xl font-extrabold text-slate-50 arcade-title">Codify Rumble</div>
               <div className="mt-1 text-sm text-slate-300">
                 Two players. One room. Three problems. First accepted wins each card.
               </div>
@@ -187,7 +187,7 @@ export default function App() {
               >
                 Create room
               </button>
-              <div className="mt-4 text-xs text-slate-400">Tip: refresh-safe session is enabled.</div>
+              <div className="mt-4 text-xs text-slate-400"></div>
             </div>
 
             <div className="arcade-panel rounded-3xl p-7">

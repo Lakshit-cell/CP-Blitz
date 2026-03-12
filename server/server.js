@@ -310,6 +310,6 @@ io.on("connection", (socket) => {
 
 server.listen(PORT, () => {
         // eslint-disable-next-line no-console
-        console.log(`CF Blitz server listening on http://localhost:${PORT}`);
+        console.log(`CP Blitz server listening on http://localhost:${PORT}`);
 });
 
