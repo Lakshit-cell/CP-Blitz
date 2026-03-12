@@ -237,8 +237,6 @@ export default function Game({ room, onLeave }) {
       return true;
     }
   });
-  const [codeBox, setCodeBox] = useState("");
-  const [lang, setLang] = useState("cpp");
   const [checkDisabled, setCheckDisabled] = useState(false);
 
   const lastConqueredKeysRef = useRef(new Set(Object.keys(room.conquered || {})));
@@ -331,25 +329,6 @@ export default function Game({ room, onLeave }) {
   };
 
   const activeStatement = modal.key ? statementByKey[modal.key] : null;
-  const activeProblem = useMemo(() => {
-    if (!modal.key) return null;
-    return (room.problems || []).find((p) => p.key === modal.key) || null;
-  }, [modal.key, room.problems]);
-
-  const openCfSubmit = () => {
-    if (!activeProblem) return;
-    const url = `https://codeforces.com/problemset/submit?contestId=${encodeURIComponent(activeProblem.contestId)}&problemIndex=${encodeURIComponent(activeProblem.index)}`;
-    window.open(url, "_blank", "noreferrer");
-  };
-
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(codeBox);
-      if (soundOn) beep({ frequency: 784, durationMs: 50 });
-    } catch {
-      // ignore
-    }
-  };
 
   return (
     <div className="w-full max-w-6xl">
@@ -456,73 +435,6 @@ export default function Game({ room, onLeave }) {
         html={activeStatement?.html || ""}
         onClose={() => setModal({ open: false, title: "", key: null })}
       />
-
-      {/* Arcade editor + submit helper (manual submit on CF) */}
-      <div className="mt-8 rounded-3xl p-6 arcade-panel">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Arena Console</div>
-            <div className="mt-1 text-sm font-extrabold text-slate-100">Write code here, then open CF submit</div>
-            <div className="mt-1 text-xs text-slate-300">
-              Note: actual submission needs you to be logged in on Codeforces (we can't auto-submit without a login system).
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={lang}
-              onChange={(e) => setLang(e.target.value)}
-              className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-400/10"
-            >
-              <option value="cpp">C++</option>
-              <option value="py">Python</option>
-              <option value="java">Java</option>
-              <option value="js">JavaScript</option>
-              <option value="c">C</option>
-              <option value="cs">C#</option>
-              <option value="go">Go</option>
-              <option value="kt">Kotlin</option>
-              <option value="rs">Rust</option>
-            </select>
-            <button
-              onClick={copyCode}
-              className="rounded-2xl bg-cyan-400/15 px-3.5 py-2 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/30 hover:bg-cyan-400/20"
-            >
-              Copy code
-            </button>
-            <button
-              onClick={openCfSubmit}
-              disabled={!activeProblem}
-              className="rounded-2xl bg-fuchsia-400/15 px-3.5 py-2 text-sm font-semibold text-fuchsia-100 ring-1 ring-fuchsia-400/30 hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              title={activeProblem ? "Opens Codeforces submit page in new tab" : "Open a statement first to pick the problem"}
-            >
-              Open CF submit
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <textarea
-              value={codeBox}
-              onChange={(e) => setCodeBox(e.target.value)}
-              placeholder={`// ${lang.toUpperCase()} code here…\n`}
-              className="h-72 w-full resize-none rounded-3xl border border-white/10 bg-black/25 p-4 font-mono text-sm text-slate-100 shadow-sm outline-none focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-400/10"
-            />
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Workflow</div>
-            <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-200">
-              <li>Click a problem → <span className="font-semibold">View statement</span></li>
-              <li>Write solution here</li>
-              <li><span className="font-semibold">Copy code</span></li>
-              <li><span className="font-semibold">Open CF submit</span> and paste</li>
-            </ol>
-            <div className="mt-4 text-xs text-slate-400">
-              Tip: keep Codeforces logged in on each laptop for fastest submissions.
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
