@@ -14,7 +14,7 @@ const {
         leaveAllRoomsForSocket,
         roomToPublicState,
 } = require("./rooms");
-const { pickRandomProblemsByRatings, fetchUserStatus } = require("./codeforces");
+const { pickRandomProblemsByRatings, fetchUserStatus, fetchUserInfo } = require("./codeforces");
 const { fetchProblemStatementHtml } = require("./statement");
 
 const PORT = process.env.PORT || 3000;
@@ -26,6 +26,20 @@ if (!SERVE_CLIENT) {
         app.use(cors({ origin: CLIENT_ORIGIN }));
 }
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/api/check-handle", async (req, res) => {
+        try {
+                const handle = String(req.query.handle || "").trim();
+                if (!handle) return res.status(400).json({ ok: false, error: "handle is required." });
+
+                const user = await fetchUserInfo(handle);
+                return res.json({ ok: true, handle: user.handle, rating: user.rating ?? null });
+        } catch (e) {
+                const msg = e.message || "";
+                const isNotFound = msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("handles: not found");
+                return res.status(isNotFound ? 404 : 500).json({ ok: false, error: msg || "Handle not found." });
+        }
+});
 
 app.get("/api/problem-statement", async (req, res) => {
         try {

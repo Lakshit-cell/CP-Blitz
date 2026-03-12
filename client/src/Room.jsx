@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 export default function Room({ room, myId, onSetHandle, onLeave, defaultHandle = "" }) {
   const [handle, setHandle] = useState(defaultHandle);
   const [copied, setCopied] = useState(false);
+  const [checkState, setCheckState] = useState(null); // null | "loading" | "valid" | "invalid"
+  const [checkError, setCheckError] = useState("");
 
   const me = useMemo(() => room.players.find((p) => p.id === myId), [room.players, myId]);
   const other = useMemo(() => room.players.find((p) => p.id !== myId), [room.players, myId]);
@@ -16,6 +18,32 @@ export default function Room({ room, myId, onSetHandle, onLeave, defaultHandle =
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
       // ignore
+    }
+  };
+
+  const onHandleChange = (e) => {
+    setHandle(e.target.value);
+    setCheckState(null);
+    setCheckError("");
+  };
+
+  const checkHandle = async () => {
+    const h = handle.trim();
+    if (!h) return;
+    setCheckState("loading");
+    setCheckError("");
+    try {
+      const res = await fetch(`/api/check-handle?handle=${encodeURIComponent(h)}`);
+      const data = await res.json();
+      if (data.ok) {
+        setCheckState("valid");
+      } else {
+        setCheckState("invalid");
+        setCheckError(data.error || "Handle not found on Codeforces.");
+      }
+    } catch {
+      setCheckState("invalid");
+      setCheckError("Could not reach server. Please try again.");
     }
   };
 
@@ -69,10 +97,17 @@ export default function Room({ room, myId, onSetHandle, onLeave, defaultHandle =
         <div className="mt-3 flex flex-col gap-3 sm:flex-row">
           <input
             value={handle}
-            onChange={(e) => setHandle(e.target.value)}
+            onChange={onHandleChange}
             placeholder="e.g. tourist"
             className="w-full flex-1 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-slate-100 shadow-sm outline-none placeholder:text-slate-400 focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-400/10"
           />
+          <button
+            disabled={!handle.trim() || checkState === "loading"}
+            onClick={checkHandle}
+            className="rounded-2xl bg-amber-400/15 px-5 py-3 text-sm font-semibold text-amber-100 shadow-sm ring-1 ring-amber-400/30 hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {checkState === "loading" ? "Checking…" : "Check handle"}
+          </button>
           <button
             disabled={!canSubmit}
             onClick={() => onSetHandle(handle)}
@@ -81,7 +116,13 @@ export default function Room({ room, myId, onSetHandle, onLeave, defaultHandle =
             Confirm handle
           </button>
         </div>
-        <div className="mt-3 text-xs text-slate-300"></div>
+        {checkState === "valid" && (
+          <div className="mt-3 text-xs font-semibold text-emerald-400">✓ Valid Codeforces handle</div>
+        )}
+        {checkState === "invalid" && (
+          <div className="mt-3 text-xs font-semibold text-rose-400">✗ {checkError}</div>
+        )}
+        {checkState === null && <div className="mt-3 text-xs text-slate-300"></div>}
       </div>
     </div>
   );

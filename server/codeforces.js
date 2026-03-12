@@ -81,8 +81,18 @@ async function fetchUserStatus(handle, { count = 100 } = {}) {
   return data.result || [];
 }
 
+async function fetchUserInfo(handle) {
+  const url = `${CF_API}/user.info?handles=${encodeURIComponent(handle)}`;
+  const data = await rateLimitedFetchJson(url);
+  if (data.status !== "OK") throw new Error(data.comment || "Handle not found on Codeforces.");
+  const user = (data.result || [])[0];
+  if (!user) throw new Error("Handle not found on Codeforces.");
+  return user;
+}
+
 module.exports = {
   pickRandomProblemsByRatings,
   fetchUserStatus,
+  fetchUserInfo,
 };
 
