@@ -3,6 +3,49 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import confetti from "canvas-confetti";
 
+function GameTimer({ endTime, isFinished }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, endTime - Date.now()));
+
+  useEffect(() => {
+    if (!endTime) return;
+    const tick = () => setRemaining(Math.max(0, endTime - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [endTime]);
+
+  if (!endTime) return null;
+
+  const totalSeconds = Math.floor(remaining / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+  const isOver = remaining === 0 || isFinished;
+  const isRed = remaining < 60_000 && !isOver;
+  const isOrange = remaining < 5 * 60_000 && !isRed && !isOver;
+
+  const colorClass = isOver
+    ? "text-slate-400"
+    : isRed
+      ? "text-red-400"
+      : isOrange
+        ? "text-orange-400"
+        : "text-cyan-200";
+
+  return (
+    <div
+      className={[
+        "rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-white/10 tabular-nums",
+        colorClass,
+      ].join(" ")}
+      title="Match timer"
+    >
+      {isOver ? "Game Over" : `⏱ ${display}`}
+    </div>
+  );
+}
+
 function renderMathInHtml(html) {
   // Codeforces often uses $$$...$$$ for math in scraped/plain text.
   // We'll render both $$$...$$$ and $$...$$ (display) and $...$ (inline).
@@ -286,6 +329,7 @@ export default function Game({ room, onLeave }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} />
           <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
             Solved: {totalSolved}/3
           </div>
