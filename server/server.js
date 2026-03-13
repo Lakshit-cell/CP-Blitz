@@ -59,9 +59,9 @@ function computeScores(room) {
 
         const weightByKey = new Map();
         if (Array.isArray(room.problems)) {
-                room.problems.forEach((problem, index) => {
+                room.problems.forEach((problem) => {
                         const key = `${problem.contestId}-${problem.index}`;
-                        const weight = problem.weight ?? SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT;
+                        const weight = problem.weight ?? DEFAULT_SCORE_WEIGHT;
                         weightByKey.set(key, weight);
                 });
         }
