@@ -21,6 +21,7 @@ if (!hasClientDeps()) {
     if (error?.message) {
       console.error(error.message.split('\n')[0]);
     }
-    process.exit(error?.code ?? 1);
+    const exitCode = typeof error?.status === 'number' ? error.status : 1;
+    process.exit(exitCode);
   }
 }
