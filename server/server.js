@@ -65,10 +65,10 @@ function computeScores(room) {
                 });
         }
 
-        for (const [key, v] of Object.entries(room.conquered || {})) {
-                if (v?.byPlayerId && scoresById[v.byPlayerId] != null) {
+        for (const [key, conquest] of Object.entries(room.conquered || {})) {
+                if (conquest?.byPlayerId && scoresById[conquest.byPlayerId] != null) {
                         const weight = weightByKey.get(key) ?? DEFAULT_SCORE_WEIGHT;
-                        scoresById[v.byPlayerId] += weight;
+                        scoresById[conquest.byPlayerId] += weight;
                 }
         }
 
