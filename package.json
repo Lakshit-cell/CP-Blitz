@@ -7,7 +7,8 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "build": "npm install --prefix client --include=dev && npm run build --prefix client",
+    "build": "npm run build --prefix client",
+    "postinstall": "npm install --prefix client --include=dev",
     "start": "npm run build && npm run start:serve --prefix server"
   },
   "keywords": [],
