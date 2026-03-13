@@ -21,6 +21,6 @@ if (!hasClientDeps()) {
     if (error?.message) {
       console.error(error.message.split('\n')[0]);
     }
-    process.exit(error?.status ?? 1);
+    process.exit(error?.code ?? 1);
   }
 }
