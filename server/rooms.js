@@ -119,7 +119,7 @@ function reconnectPlayer(code, token, newSocketId, handleRaw) {
 
   if (oldSocketId && room.conquered) {
     for (const conquest of Object.values(room.conquered)) {
-      if (conquest?.byPlayerId === oldSocketId) {
+      if (conquest && conquest.byPlayerId === oldSocketId) {
         conquest.byPlayerId = newSocketId;
       }
     }
