@@ -111,10 +111,19 @@ function reconnectPlayer(code, token, newSocketId, handleRaw) {
   const player = room.players.find((p) => p.token === t);
   if (!player) return { ok: false, error: "Reconnect token not recognized for this room." };
 
+  const oldSocketId = player.id;
   player.id = newSocketId;
   player.disconnectedAt = null;
   const handle = (handleRaw || "").trim();
   if (handle) player.handle = handle;
+
+  if (oldSocketId && room.conquered) {
+    for (const conquest of Object.values(room.conquered)) {
+      if (conquest && conquest.byPlayerId === oldSocketId) {
+        conquest.byPlayerId = newSocketId;
+      }
+    }
+  }
 
   return { ok: true, room, player };
 }
@@ -152,4 +161,3 @@ module.exports = {
   leaveAllRoomsForSocket,
   roomToPublicState,
 };
-
