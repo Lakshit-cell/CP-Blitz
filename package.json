@@ -8,6 +8,7 @@
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
+    "postinstall": "node scripts/postinstall.js",
     "start": "npm run build && npm run start:serve --prefix server"
   },
   "keywords": [],
