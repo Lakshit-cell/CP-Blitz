@@ -54,25 +54,25 @@ const SCORE_WEIGHTS = [2, 3, 4];
 const DEFAULT_SCORE_WEIGHT = 1;
 
 function computeScores(room) {
-	const scoresById = {};
-	for (const p of room.players) scoresById[p.id] = 0;
+        const scoresById = {};
+        for (const player of room.players) scoresById[player.id] = 0;
 
-	const weightByKey = new Map();
-	if (Array.isArray(room.problems)) {
-		room.problems.forEach((p, index) => {
-			const key = `${p.contestId}-${p.index}`;
-			weightByKey.set(key, SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT);
-		});
-	}
+        const weightByKey = new Map();
+        if (Array.isArray(room.problems)) {
+                room.problems.forEach((problem, index) => {
+                        const key = `${problem.contestId}-${problem.index}`;
+                        weightByKey.set(key, SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT);
+                });
+        }
 
-	for (const [key, v] of Object.entries(room.conquered || {})) {
-		if (v?.byPlayerId && scoresById[v.byPlayerId] != null) {
-			const weight = weightByKey.get(key) ?? DEFAULT_SCORE_WEIGHT;
-			scoresById[v.byPlayerId] += weight;
-		}
-	}
+        for (const [key, v] of Object.entries(room.conquered || {})) {
+                if (v?.byPlayerId && scoresById[v.byPlayerId] != null) {
+                        const weight = weightByKey.get(key) ?? DEFAULT_SCORE_WEIGHT;
+                        scoresById[v.byPlayerId] += weight;
+                }
+        }
 
-	return scoresById;
+        return scoresById;
 }
 
 function roomSummary(room) {
