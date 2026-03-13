@@ -186,7 +186,7 @@ function ProblemCard({ problem, conquered, onViewStatement }) {
               problem.rating === 1200 ? "rating-1200 ring-fuchsia-400/30" : "",
             ].join(" ")}
           >
-            {problem.rating}
+            {"UWU"}
           </div>
         </div>
         <div
