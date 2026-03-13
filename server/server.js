@@ -61,11 +61,12 @@ function computeScores(room) {
         if (Array.isArray(room.problems)) {
                 room.problems.forEach((problem, index) => {
                         const key = `${problem.contestId}-${problem.index}`;
-                        weightByKey.set(key, SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT);
+                        const weight = problem.weight ?? SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT;
+                        weightByKey.set(key, weight);
                 });
         }
 
-        for (const [key, conquest] of Object.entries(room.conquered || {})) {
+        for (const [key, conquest] of Object.entries(room.conquered)) {
                 if (conquest?.byPlayerId && scoresById[conquest.byPlayerId] != null) {
                         const weight = weightByKey.get(key) ?? DEFAULT_SCORE_WEIGHT;
                         scoresById[conquest.byPlayerId] += weight;
@@ -109,7 +110,11 @@ async function startGameIfReady(code) {
         room.endTime = room.startTime + 15 * 60 * 1000;
 
         try {
-                room.problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
+                const problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
+                room.problems = problems.map((problem, index) => ({
+                        ...problem,
+                        weight: SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT,
+                }));
         } catch (e) {
                 room.status = "waiting";
                 room.startTime = null;
