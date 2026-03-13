@@ -54,18 +54,19 @@ function computeScores(room) {
 	const scoresById = {};
 	for (const p of room.players) scoresById[p.id] = 0;
 
+	const DEFAULT_WEIGHT = 1;
 	const weights = [2, 3, 4];
 	const weightByKey = new Map();
 	if (Array.isArray(room.problems)) {
 		room.problems.forEach((p, index) => {
 			const key = `${p.contestId}-${p.index}`;
-			weightByKey.set(key, weights[index] ?? 1);
+			weightByKey.set(key, weights[index] ?? DEFAULT_WEIGHT);
 		});
 	}
 
 	for (const [key, v] of Object.entries(room.conquered || {})) {
 		if (v?.byPlayerId && scoresById[v.byPlayerId] != null) {
-			const weight = weightByKey.get(key) ?? 1;
+			const weight = weightByKey.get(key) ?? DEFAULT_WEIGHT;
 			scoresById[v.byPlayerId] += weight;
 		}
 	}
