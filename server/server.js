@@ -50,12 +50,27 @@ if (SERVE_CLIENT) {
 const server = http.createServer(app);
 const io = new Server(server, { cors: SERVE_CLIENT ? undefined : { origin: CLIENT_ORIGIN } });
 
+const SCORE_WEIGHTS = [2, 3, 4];
+const DEFAULT_SCORE_WEIGHT = 1;
+
 function computeScores(room) {
         const scoresById = {};
-        for (const p of room.players) scoresById[p.id] = 0;
+        for (const player of room.players) scoresById[player.id] = 0;
 
-        for (const v of Object.values(room.conquered)) {
-                if (v?.byPlayerId && scoresById[v.byPlayerId] != null) scoresById[v.byPlayerId] += 1;
+        const weightByKey = new Map();
+        if (Array.isArray(room.problems)) {
+                room.problems.forEach((problem) => {
+                        const key = `${problem.contestId}-${problem.index}`;
+                        const weight = problem.weight ?? DEFAULT_SCORE_WEIGHT;
+                        weightByKey.set(key, weight);
+                });
+        }
+
+        for (const [key, conquest] of Object.entries(room.conquered)) {
+                if (conquest?.byPlayerId && scoresById[conquest.byPlayerId] != null) {
+                        const weight = weightByKey.get(key) ?? DEFAULT_SCORE_WEIGHT;
+                        scoresById[conquest.byPlayerId] += weight;
+                }
         }
 
         return scoresById;
@@ -95,7 +110,11 @@ async function startGameIfReady(code) {
         room.endTime = room.startTime + 15 * 60 * 1000;
 
         try {
-                room.problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
+                const problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
+                room.problems = problems.map((problem, index) => ({
+                        ...problem,
+                        weight: SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT,
+                }));
         } catch (e) {
                 room.status = "waiting";
                 room.startTime = null;
@@ -312,4 +331,3 @@ server.listen(PORT, () => {
         // eslint-disable-next-line no-console
         console.log(`CP Blitz server listening on http://localhost:${PORT}`);
 });
-
