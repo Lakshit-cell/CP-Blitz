@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 
 const {
         createRoom,
+        createNormalRoom,
         getRoom,
         joinRoom,
         reconnectPlayer,
@@ -14,7 +15,7 @@ const {
         leaveAllRoomsForSocket,
         roomToPublicState,
 } = require("./rooms");
-const { pickRandomProblemsByRatings, fetchUserStatus } = require("./codeforces");
+const { pickRandomProblemsByRatings, pickRandomProblemsByRatingRange, fetchUserStatus } = require("./codeforces");
 const { fetchProblemStatementHtml } = require("./statement");
 
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,78 @@ const io = new Server(server, { cors: SERVE_CLIENT ? undefined : { origin: CLIEN
 
 const SCORE_WEIGHTS = [2, 3, 4];
 const DEFAULT_SCORE_WEIGHT = 1;
+const DUEL_PROBLEM_RATINGS = [800, 1000, 1200];
+const DUEL_DURATION_MINUTES = 15;
+const POLL_INTERVAL_MS = 60_000;
+const FINAL_CHECK_COUNT = 30;
+
+const NORMAL_LIMITS = {
+        questions: { min: 1, max: 20 },
+        minutes: { min: 5, max: 180 },
+        rating: { min: 800, max: 3500 },
+};
+
+function validateNormalConfig(config = {}) {
+        const questionCount = Number(config.questionCount);
+        if (
+                !Number.isInteger(questionCount) ||
+                questionCount < NORMAL_LIMITS.questions.min ||
+                questionCount > NORMAL_LIMITS.questions.max
+        ) {
+                return {
+                        ok: false,
+                        error: `Choose between ${NORMAL_LIMITS.questions.min}–${NORMAL_LIMITS.questions.max} questions.`,
+                };
+        }
+
+        const durationMinutes = Number(config.durationMinutes);
+        if (
+                !Number.isInteger(durationMinutes) ||
+                durationMinutes < NORMAL_LIMITS.minutes.min ||
+                durationMinutes > NORMAL_LIMITS.minutes.max
+        ) {
+                return {
+                        ok: false,
+                        error: `Time must be between ${NORMAL_LIMITS.minutes.min}–${NORMAL_LIMITS.minutes.max} minutes.`,
+                };
+        }
+
+        const minRating = Number(config.minRating);
+        const maxRating = Number(config.maxRating);
+        if (
+                !Number.isInteger(minRating) ||
+                minRating < NORMAL_LIMITS.rating.min ||
+                minRating > NORMAL_LIMITS.rating.max
+        ) {
+                return {
+                        ok: false,
+                        error: `Minimum rating must be between ${NORMAL_LIMITS.rating.min}–${NORMAL_LIMITS.rating.max}.`,
+                };
+        }
+        if (
+                !Number.isInteger(maxRating) ||
+                maxRating < NORMAL_LIMITS.rating.min ||
+                maxRating > NORMAL_LIMITS.rating.max
+        ) {
+                return {
+                        ok: false,
+                        error: `Maximum rating must be between ${NORMAL_LIMITS.rating.min}–${NORMAL_LIMITS.rating.max}.`,
+                };
+        }
+        if (minRating > maxRating) {
+                return { ok: false, error: "Minimum rating cannot exceed maximum rating." };
+        }
+
+        return {
+                ok: true,
+                value: {
+                        questionCount,
+                        minRating,
+                        maxRating,
+                        durationMinutes,
+                },
+        };
+}
 
 function computeScores(room) {
         const scoresById = {};
@@ -97,31 +170,12 @@ function emitRoomState(room) {
         io.to(room.code).emit("room:state", roomSummary(room));
 }
 
-async function startGameIfReady(code) {
-        const room = getRoom(code);
-        if (!room) return;
-        if (room.status !== "waiting") return;
-        if (room.players.length !== 2) return;
-        if (!room.players.every((p) => p.handle)) return;
-        // changes
+async function startConfiguredGame(room, { problems, durationMs }) {
         room.status = "in_progress";
         room.conquered = {};
         room.startTime = Date.now();
-        room.endTime = room.startTime + 15 * 60 * 1000;
-
-        try {
-                const problems = await pickRandomProblemsByRatings([800, 1000, 1200]);
-                room.problems = problems.map((problem, index) => ({
-                        ...problem,
-                        weight: SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT,
-                }));
-        } catch (e) {
-                room.status = "waiting";
-                room.startTime = null;
-                room.endTime = null;
-                io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
-                return;
-        }
+        room.endTime = room.startTime + durationMs;
+        room.problems = problems;
 
         emitRoomState(room);
         io.to(room.code).emit("game:start", roomSummary(room));
@@ -130,36 +184,54 @@ async function startGameIfReady(code) {
                 checkSolves(room.code).catch((err) => {
                         io.to(room.code).emit("error", { message: `Polling error: ${err.message}` });
                 });
-        }, 60_000);
+        }, POLL_INTERVAL_MS);
 
-        // Server-side 15-minute game timer.
         room.timerTimeout = setTimeout(async () => {
-                const r = getRoom(code);
+                const r = getRoom(room.code);
                 if (!r || r.status !== "in_progress") return;
 
-                // Stop backup polling before final check.
                 if (r.pollInterval) clearInterval(r.pollInterval);
                 r.pollInterval = null;
                 r.timerTimeout = null;
 
-                // Final verification pass: fetch last 30 submissions for both handles.
                 try {
-                        await checkSolves(r.code, { count: 30 });
+                        await checkSolves(r.code, { count: FINAL_CHECK_COUNT });
                 } catch (e) {
                         io.to(r.code).emit("error", { message: `Final check error: ${e.message}` });
                 }
 
-                // checkSolves may have already finished the game if all problems were solved.
-                const rFinal = getRoom(code);
+                const rFinal = getRoom(room.code);
                 if (!rFinal || rFinal.status !== "in_progress") return;
 
                 rFinal.status = "finished";
                 emitRoomState(rFinal);
                 io.to(rFinal.code).emit("game:over", roomSummary(rFinal));
-        }, 15 * 60 * 1000);
+        }, durationMs);
 
-        // Run once immediately so the UI updates fast.
         await checkSolves(room.code);
+}
+
+async function startGameIfReady(code) {
+        const room = getRoom(code);
+        if (!room) return;
+        if (room.mode !== "duel") return;
+        if (room.status !== "waiting") return;
+        if (room.players.length !== room.maxPlayers) return;
+        if (!room.players.every((p) => p.handle)) return;
+
+        try {
+                const problems = await pickRandomProblemsByRatings(DUEL_PROBLEM_RATINGS);
+                const weighted = problems.map((problem, index) => ({
+                        ...problem,
+                        weight: SCORE_WEIGHTS[index] ?? DEFAULT_SCORE_WEIGHT,
+                }));
+                await startConfiguredGame(room, { problems: weighted, durationMs: DUEL_DURATION_MINUTES * 60 * 1000 });
+        } catch (e) {
+                room.status = "waiting";
+                room.startTime = null;
+                room.endTime = null;
+                io.to(room.code).emit("error", { message: `Failed to fetch problems: ${e.message}` });
+        }
 }
 
 function allProblemsSolved(room) {
@@ -171,7 +243,8 @@ async function checkSolves(code, { count = 5 } = {}) {
         const room = getRoom(code);
         if (!room) return;
         if (room.status !== "in_progress") return;
-        if (!room.problems || room.players.length !== 2) return;
+        if (!room.problems || room.players.length === 0) return;
+        if (!room.players.every((p) => p.handle)) return;
 
         const problemsByKey = {};
         for (const p of room.problems) problemsByKey[`${p.contestId}-${p.index}`] = p;
@@ -250,6 +323,42 @@ io.on("connection", (socket) => {
                 socket.join(room.code);
                 socket.emit("room:created", { code: room.code, token });
                 emitRoomState(room);
+        });
+
+        socket.on("normal:start", async ({ handle, config }) => {
+                const trimmedHandle = String(handle || "").trim();
+                if (!trimmedHandle) {
+                        socket.emit("error", { message: "Handle cannot be empty." });
+                        return;
+                }
+
+                const validation = validateNormalConfig(config);
+                if (!validation.ok) {
+                        socket.emit("error", { message: validation.error });
+                        return;
+                }
+
+                let problems;
+                try {
+                        problems = await pickRandomProblemsByRatingRange({
+                                minRating: validation.value.minRating,
+                                maxRating: validation.value.maxRating,
+                                count: validation.value.questionCount,
+                        });
+                } catch (e) {
+                        socket.emit("error", { message: `Failed to fetch problems: ${e.message}` });
+                        return;
+                }
+
+                const { room, token } = createNormalRoom(socket.id, trimmedHandle, validation.value);
+                socket.join(room.code);
+                socket.emit("room:created", { code: room.code, token, handle: trimmedHandle });
+
+                const weighted = problems.map((problem) => ({ ...problem, weight: DEFAULT_SCORE_WEIGHT }));
+                await startConfiguredGame(room, {
+                        problems: weighted,
+                        durationMs: validation.value.durationMinutes * 60 * 1000,
+                });
         });
 
         socket.on("room:join", ({ code }) => {

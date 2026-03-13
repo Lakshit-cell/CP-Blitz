@@ -66,6 +66,7 @@ Open:
 - Both players enter their **Codeforces handle**.
 - The server picks 3 random problems (ratings **800/1000/1200**) and polls every **10s** for accepted submissions.
 - Click **View statement** on a card to read the full problem statement inside the app.
+- Want a solo warmup? Use **Normal Mode** on the home screen to choose a question count, rating range, and total time.
 
 ## Project structure
 
@@ -82,4 +83,3 @@ cf-blitz/
       Game.jsx
       socket.js
 ```
-
