@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { socket } from "./socket";
 import Room from "./Room";
 import Game from "./Game";
+import NormalModeConfig from "./NormalModeConfig";
 
 const SESSION_KEY = "cfblitz:session";
 
@@ -31,7 +32,7 @@ function clearSession() {
 }
 
 export default function App() {
-  const [stage, setStage] = useState("home"); // home | room | game
+  const [stage, setStage] = useState("home"); // home | room | game | normal
   const [roomCodeInput, setRoomCodeInput] = useState("");
   const [room, setRoom] = useState(null);
   const [toast, setToast] = useState(null);
@@ -59,9 +60,11 @@ export default function App() {
     };
 
     socket.on("connect", onConnect);
-    socket.on("room:created", ({ code, token }) => {
+    socket.on("room:created", ({ code, token, handle }) => {
       setMyToken(token);
-      saveSession({ code, token, handle: "" });
+      const nextHandle = handle || "";
+      saveSession({ code, token, handle: nextHandle });
+      if (handle) setMyHandle(handle);
     });
     socket.on("room:joined", ({ code, token }) => {
       setMyToken(token);
@@ -125,6 +128,22 @@ export default function App() {
     }
   };
 
+  const openNormalMode = () => {
+    setStage("normal");
+  };
+
+  const startNormalMode = ({ handle, questionCount, minRating, maxRating, durationMinutes }) => {
+    setMyHandle(handle);
+    socket.emit("normal:start", {
+      handle,
+      config: { questionCount, minRating, maxRating, durationMinutes },
+    });
+  };
+
+  const exitNormalMode = () => {
+    setStage("home");
+  };
+
   return (
     <div className="min-h-full text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-10">
@@ -177,7 +196,7 @@ export default function App() {
         )}
 
         {stage === "home" && (
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
             <div className="arcade-panel rounded-3xl p-7">
               <div className="text-lg font-extrabold text-slate-50">Create a room</div>
               <div className="mt-2 text-sm text-slate-300">Start a duel and share the room code with your opponent.</div>
@@ -210,9 +229,28 @@ export default function App() {
               </div>
               <div className="mt-4 text-xs text-slate-400"></div>
             </div>
+
+            <div className="arcade-panel rounded-3xl p-7">
+              <div className="text-lg font-extrabold text-slate-50">Normal Mode</div>
+              <div className="mt-2 text-sm text-slate-300">
+                Custom solo practice. Choose your question count, rating range, and time limit.
+              </div>
+              <button
+                onClick={openNormalMode}
+                className="mt-6 rounded-2xl bg-indigo-400/15 px-5 py-3 text-sm font-semibold text-indigo-100 shadow-sm ring-1 ring-indigo-400/30 hover:bg-indigo-400/20"
+              >
+                Configure Normal Mode
+              </button>
+              <div className="mt-4 text-xs text-slate-400"></div>
+            </div>
           </div>
         )}
 
+        {stage === "normal" && (
+          <div className="mt-10">
+            <NormalModeConfig onStart={startNormalMode} onCancel={exitNormalMode} defaultHandle={myHandle} />
+          </div>
+        )}
         {stage === "room" && room && (
           <div className="mt-10">
             <Room room={room} myId={myId} onSetHandle={setHandle} onLeave={leave} defaultHandle={myHandle} />

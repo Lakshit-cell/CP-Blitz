@@ -19,16 +19,45 @@ function createRoom(socketId) {
   const token = generatePlayerToken();
   const room = {
     code,
+    mode: "duel", // duel | normal
     status: "waiting", // waiting | in_progress | finished
     createdAt: Date.now(),
+    maxPlayers: 2,
     players: [{ id: socketId, token, handle: null, disconnectedAt: null }],
     problems: null, // [{rating, contestId, index, name}]
+    settings: null,
     conquered: {}, // key -> { byPlayerId, byHandle, atCreationTimeSeconds }
     pollInterval: null,
     startTime: null,
     endTime: null,
     timerTimeout: null,
     lastManualCheckAt: 0, // timestamp of last manual check (room-wide cooldown)
+  };
+
+  rooms.set(code, room);
+  return { room, token };
+}
+
+function createNormalRoom(socketId, handle, settings) {
+  let code = generateRoomCode();
+  while (rooms.has(code)) code = generateRoomCode();
+
+  const token = generatePlayerToken();
+  const room = {
+    code,
+    mode: "normal", // duel | normal
+    status: "waiting", // waiting | in_progress | finished
+    createdAt: Date.now(),
+    maxPlayers: 1,
+    players: [{ id: socketId, token, handle, disconnectedAt: null }],
+    problems: null, // [{rating, contestId, index, name}]
+    settings,
+    conquered: {},
+    pollInterval: null,
+    startTime: null,
+    endTime: null,
+    timerTimeout: null,
+    lastManualCheckAt: 0,
   };
 
   rooms.set(code, room);
@@ -42,7 +71,9 @@ function getRoom(code) {
 function joinRoom(code, socketId) {
   const room = getRoom(code);
   if (!room) return { ok: false, error: "Room not found." };
-  if (room.players.length >= 2) return { ok: false, error: "Room is full (max 2 players)." };
+  if (room.mode === "normal") return { ok: false, error: "This room is in Normal Mode and cannot be joined." };
+  if (room.players.length >= room.maxPlayers)
+    return { ok: false, error: `Room is full (max ${room.maxPlayers} players).` };
   if (room.players.some((p) => p.id === socketId)) return { ok: true, room };
 
   const token = generatePlayerToken();
@@ -142,7 +173,9 @@ function roomToPublicState(room) {
 
   return {
     code: room.code,
+    mode: room.mode || "duel",
     status: room.status,
+    settings: room.settings || null,
     players: room.players.map((p) => ({ id: p.id, handle: p.handle, disconnected: Boolean(p.disconnectedAt) })),
     problems,
     conquered: room.conquered,
@@ -153,6 +186,7 @@ function roomToPublicState(room) {
 module.exports = {
   rooms,
   createRoom,
+  createNormalRoom,
   getRoom,
   joinRoom,
   reconnectPlayer,

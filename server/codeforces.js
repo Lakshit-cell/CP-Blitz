@@ -55,6 +55,14 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 async function pickRandomProblemsByRatings(ratings) {
   const problems = await fetchProblemset();
 
@@ -74,6 +82,25 @@ async function pickRandomProblemsByRatings(ratings) {
   return picked;
 }
 
+async function pickRandomProblemsByRatingRange({ minRating, maxRating, count }) {
+  const problems = await fetchProblemset();
+  const candidates = problems.filter(
+    (p) => Number.isFinite(p.rating) && p.rating >= minRating && p.rating <= maxRating && p.contestId && p.index && p.name,
+  );
+
+  if (candidates.length < count) {
+    throw new Error(`Only ${candidates.length} problems available between ${minRating}-${maxRating}.`);
+  }
+
+  const shuffled = shuffle([...candidates]);
+  return shuffled.slice(0, count).map((p) => ({
+    rating: p.rating,
+    contestId: p.contestId,
+    index: p.index,
+    name: p.name,
+  }));
+}
+
 async function fetchUserStatus(handle, { count = 100 } = {}) {
   const url = `${CF_API}/user.status?handle=${encodeURIComponent(handle)}&from=1&count=${count}`;
   const data = await rateLimitedFetchJson(url);
@@ -83,6 +110,6 @@ async function fetchUserStatus(handle, { count = 100 } = {}) {
 
 module.exports = {
   pickRandomProblemsByRatings,
+  pickRandomProblemsByRatingRange,
   fetchUserStatus,
 };
-

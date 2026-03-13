@@ -228,6 +228,7 @@ function ProblemCard({ problem, conquered, onViewStatement }) {
 export default function Game({ room, onLeave }) {
   const players = room.players || [];
   const [p1, p2] = players;
+  const isNormalMode = room.mode === "normal";
   const [modal, setModal] = useState({ open: false, title: "", key: null });
   const [statementByKey, setStatementByKey] = useState({});
   const [soundOn, setSoundOn] = useState(() => {
@@ -243,15 +244,16 @@ export default function Game({ room, onLeave }) {
   const lastStatusRef = useRef(room.status);
 
   const totalSolved = useMemo(() => Object.keys(room.conquered || {}).length, [room.conquered]);
-  const allSolved = room.status === "finished";
-  const progressPct = Math.round((totalSolved / 3) * 100);
+  const totalProblems = room.problems?.length || 0;
+  const isFinished = room.status === "finished";
+  const progressPct = totalProblems > 0 ? Math.round((totalSolved / totalProblems) * 100) : 0;
 
   const winnerLabel = useMemo(() => {
-    if (!allSolved) return null;
+    if (!isFinished || isNormalMode) return null;
     if (!room.winnerId) return "Tie";
     const winner = players.find((p) => p.id === room.winnerId);
     return winner?.handle || "Winner";
-  }, [allSolved, room.winnerId, players]);
+  }, [isFinished, isNormalMode, room.winnerId, players]);
 
   useEffect(() => {
     const onCooldown = ({ disabledUntil }) => {
@@ -334,21 +336,35 @@ export default function Game({ room, onLeave }) {
     <div className="w-full max-w-6xl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-sm text-slate-400">Room</div>
-          <div className="mt-1 text-2xl font-extrabold tracking-wider text-slate-50 arcade-title">{room.code}</div>
-          <div className="mt-2 text-slate-200">
-            <span className="font-extrabold">{p1?.handle || "Player 1"}</span>
-            <span className="mx-3 vs-banner align-middle">
-              <span>VS</span>
-            </span>
-            <span className="font-extrabold">{p2?.handle || "Player 2"}</span>
+          <div className="text-sm text-slate-400">{isNormalMode ? "Normal Mode" : "Room"}</div>
+          <div className="mt-1 text-2xl font-extrabold tracking-wider text-slate-50 arcade-title">
+            {isNormalMode ? "Practice Session" : room.code}
           </div>
+          {isNormalMode ? (
+            <div className="mt-2 text-slate-200">
+              <span className="font-extrabold">{p1?.handle || "Player"}</span>
+              {room.settings && (
+                <div className="mt-1 text-xs text-slate-400">
+                  {room.settings.questionCount || totalProblems} questions · {room.settings.minRating}–{room.settings.maxRating} rating
+                  · {room.settings.durationMinutes} min
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 text-slate-200">
+              <span className="font-extrabold">{p1?.handle || "Player 1"}</span>
+              <span className="mx-3 vs-banner align-middle">
+                <span>VS</span>
+              </span>
+              <span className="font-extrabold">{p2?.handle || "Player 2"}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
           <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} soundOn={soundOn} />
           <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
-            Solved: {totalSolved}/3
+            Solved: {totalSolved}/{totalProblems || 0}
           </div>
           <button
             onClick={onCheckSubmissions}
@@ -377,14 +393,23 @@ export default function Game({ room, onLeave }) {
       <div className="mt-6 rounded-3xl p-5 arcade-panel">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-6">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Score</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-100">
-                {p1?.handle || "P1"} <span className="text-cyan-200">{p1?.score ?? 0}</span>
-                <span className="mx-2 text-slate-500">—</span>
-                <span className="text-fuchsia-200">{p2?.score ?? 0}</span> {p2?.handle || "P2"}
+            {isNormalMode ? (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Questions solved</div>
+                <div className="mt-1 text-sm font-extrabold text-slate-100">
+                  {totalSolved} / {totalProblems || 0}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Score</div>
+                <div className="mt-1 text-sm font-extrabold text-slate-100">
+                  {p1?.handle || "P1"} <span className="text-cyan-200">{p1?.score ?? 0}</span>
+                  <span className="mx-2 text-slate-500">—</span>
+                  <span className="text-fuchsia-200">{p2?.score ?? 0}</span> {p2?.handle || "P2"}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="w-full sm:w-64">
@@ -399,19 +424,30 @@ export default function Game({ room, onLeave }) {
         </div>
       </div>
 
-      {allSolved && (
+      {isFinished && (
         <div className="mt-6 rounded-3xl bg-amber-400/10 p-6 text-amber-100 ring-1 ring-amber-400/30 shadow-sm">
-          <div className="text-sm font-semibold">Game finished</div>
-          <div className="mt-1 text-xl font-extrabold arcade-title">{winnerLabel}</div>
+          <div className="text-sm font-semibold">{isNormalMode ? "Session finished" : "Game finished"}</div>
+          <div className="mt-1 text-xl font-extrabold arcade-title">
+            {isNormalMode ? "Practice complete" : winnerLabel}
+          </div>
           <div className="mt-2 text-sm text-amber-100/80">
-            Final score:{" "}
-            <span className="font-bold">
-              {p1?.handle || "P1"} {p1?.score ?? 0}
-            </span>{" "}
-            -{" "}
-            <span className="font-bold">
-              {p2?.score ?? 0} {p2?.handle || "P2"}
-            </span>
+            {isNormalMode ? (
+              <>
+                Solved <span className="font-bold">{totalSolved}</span> of{" "}
+                <span className="font-bold">{totalProblems || 0}</span> problems.
+              </>
+            ) : (
+              <>
+                Final score:{" "}
+                <span className="font-bold">
+                  {p1?.handle || "P1"} {p1?.score ?? 0}
+                </span>{" "}
+                -{" "}
+                <span className="font-bold">
+                  {p2?.score ?? 0} {p2?.handle || "P2"}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -438,4 +474,3 @@ export default function Game({ room, onLeave }) {
     </div>
   );
 }
-
