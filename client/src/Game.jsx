@@ -164,38 +164,53 @@ function StatementModal({ open, title, loading, error, html, onClose }) {
   );
 }
 
-function ProblemCard({ problem, conquered, onViewStatement }) {
-  const solved = Boolean(conquered);
-  const solvedBy = conquered?.byHandle || null;
+function ProblemCard({ problem, conquered, myHandle, isFinished, onViewStatement }) {
+  const solvedByHandle = conquered?.byHandle || null;
+  const solvedByMe = Boolean(solvedByHandle && solvedByHandle === myHandle);
+  const solvedByOpponent = Boolean(solvedByHandle && !solvedByMe);
+
+  const ratingBadgeClass =
+    problem.rating === 800
+      ? "bg-green-400/10 text-green-200 ring-green-400/40"
+      : problem.rating === 1000
+        ? "bg-yellow-400/10 text-yellow-200 ring-yellow-400/40"
+        : problem.rating === 1200
+          ? "bg-orange-400/10 text-orange-200 ring-orange-400/40"
+          : "bg-white/5 text-slate-200 ring-white/10";
+
+  const cardClass = [
+    "rounded-3xl p-6 ring-2 transition arcade-panel",
+    solvedByMe
+      ? "ring-emerald-400/60 shadow-[0_0_18px_rgba(52,211,153,0.2)]"
+      : solvedByOpponent
+        ? "ring-rose-400/60 shadow-[0_0_18px_rgba(251,113,133,0.2)]"
+        : isFinished
+          ? "ring-white/5 opacity-70"
+          : "ring-white/10 hover:ring-white/20",
+  ].join(" ");
 
   return (
-    <div
-      className={[
-        "rounded-3xl p-6 ring-1 transition arcade-panel",
-        solved ? "ring-emerald-400/30 arcade-glow" : "ring-white/10 hover:shadow-md",
-      ].join(" ")}
-    >
+    <div className={cardClass}>
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold text-slate-400">Rating</div>
-          <div
-            className={[
-              "mt-1 inline-flex rounded-xl bg-black/30 px-2.5 py-1 text-sm font-extrabold text-slate-100 ring-1",
-              problem.rating === 800 ? "rating-800 ring-cyan-400/30" : "",
-              problem.rating === 1000 ? "rating-1000 ring-emerald-400/30" : "",
-              problem.rating === 1200 ? "rating-1200 ring-fuchsia-400/30" : "",
-            ].join(" ")}
-          >
-            {problem.rating}
-          </div>
+        <div
+          className={[
+            "inline-flex rounded-xl bg-black/30 px-2.5 py-1 text-sm font-extrabold ring-1",
+            ratingBadgeClass,
+          ].join(" ")}
+        >
+          {problem.rating}
         </div>
         <div
           className={[
             "rounded-xl px-3 py-1 text-xs font-semibold ring-1",
-            solved ? "bg-emerald-400/10 text-emerald-200 ring-emerald-400/30" : "bg-white/5 text-slate-200 ring-white/10",
+            solvedByMe
+              ? "bg-emerald-400/10 text-emerald-200 ring-emerald-400/30"
+              : solvedByOpponent
+                ? "bg-rose-400/10 text-rose-200 ring-rose-400/30"
+                : "bg-white/5 text-slate-200 ring-white/10",
           ].join(" ")}
         >
-          {solved ? "Conquered" : "Open"}
+          {solvedByMe ? "Captured" : solvedByOpponent ? "Taken" : "Open"}
         </div>
       </div>
 
@@ -205,7 +220,7 @@ function ProblemCard({ problem, conquered, onViewStatement }) {
           onClick={onViewStatement}
           className="rounded-2xl bg-cyan-400/15 px-3.5 py-2 text-xs font-semibold text-cyan-100 ring-1 ring-cyan-400/30 hover:bg-cyan-400/20"
         >
-          View statement
+          Open Problem
         </button>
         <a
           href={problem.url}
@@ -213,13 +228,22 @@ function ProblemCard({ problem, conquered, onViewStatement }) {
           rel="noreferrer"
           className="inline-flex rounded-2xl bg-black/30 px-3.5 py-2 text-xs font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-black/40"
         >
-          Open on CF
+          View on Codeforces
         </a>
       </div>
 
       <div className="mt-4 text-sm">
-        <div className="text-slate-400">Solved by</div>
-        <div className="mt-1 font-semibold text-slate-100">{solvedBy || "—"}</div>
+        {solvedByHandle ? (
+          <>
+            <div className="text-slate-400">Captured by</div>
+            <div className={["mt-1 font-semibold", solvedByMe ? "text-cyan-200" : "text-rose-200"].join(" ")}>{solvedByHandle}</div>
+          </>
+        ) : (
+          <>
+            <div className="text-slate-400">First solver</div>
+            <div className="mt-1 font-semibold text-slate-500">None yet</div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -238,6 +262,11 @@ export default function Game({ room, onLeave }) {
     }
   });
   const [checkDisabled, setCheckDisabled] = useState(false);
+
+  const myHandle = useMemo(
+    () => players.find((p) => p.id === socket.id)?.handle || null,
+    [players],
+  );
 
   const lastConqueredKeysRef = useRef(new Set(Object.keys(room.conquered || {})));
   const lastStatusRef = useRef(room.status);
@@ -332,70 +361,61 @@ export default function Game({ room, onLeave }) {
 
   return (
     <div className="w-full max-w-6xl">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-sm text-slate-400">Room</div>
-          <div className="mt-1 text-2xl font-extrabold tracking-wider text-slate-50 arcade-title">{room.code}</div>
-          <div className="mt-2 text-slate-200">
-            <span className="font-extrabold">{p1?.handle || "Player 1"}</span>
-            <span className="mx-3 vs-banner align-middle">
-              <span>VS</span>
-            </span>
-            <span className="font-extrabold">{p2?.handle || "Player 2"}</span>
+      {/* Duel Header */}
+      <div className="mb-6 rounded-3xl p-6 text-center arcade-panel">
+        <div className="text-xs uppercase tracking-widest text-slate-400 mb-4">Room · {room.code}</div>
+        <div className="flex items-center justify-center gap-6 sm:gap-12">
+          <div className="flex-1 text-right">
+            <div className="text-xl font-extrabold text-cyan-200 arcade-title">{p1?.handle || "Player 1"}</div>
+            <div className="mt-2 text-5xl font-black text-cyan-100 tabular-nums">{p1?.score ?? 0}</div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} soundOn={soundOn} />
-          <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
-            Solved: {totalSolved}/3
+          <div className="vs-banner flex-shrink-0">
+            <span>VS</span>
           </div>
-          <button
-            onClick={onCheckSubmissions}
-            disabled={checkDisabled || room.status !== "in_progress"}
-            className="rounded-2xl bg-emerald-400/15 px-4 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-400/30 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Check latest submissions on Codeforces (5s cooldown)"
-          >
-            {checkDisabled ? "Checking…" : "Check submissions"}
-          </button>
-          <button
-            onClick={toggleSound}
-            className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10 hover:bg-black/40"
-            title="Toggle sound"
-          >
-            Sound: {soundOn ? "On" : "Off"}
-          </button>
-          <button
-            onClick={onLeave}
-            className="rounded-2xl bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100 ring-1 ring-rose-400/30 hover:bg-rose-400/15"
-          >
-            Leave
-          </button>
+          <div className="flex-1 text-left">
+            <div className="text-xl font-extrabold text-fuchsia-200 arcade-title">{p2?.handle || "Player 2"}</div>
+            <div className="mt-2 text-5xl font-black text-fuchsia-100 tabular-nums">{p2?.score ?? 0}</div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 rounded-3xl p-5 arcade-panel">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-6">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Score</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-100">
-                {p1?.handle || "P1"} <span className="text-cyan-200">{p1?.score ?? 0}</span>
-                <span className="mx-2 text-slate-500">—</span>
-                <span className="text-fuchsia-200">{p2?.score ?? 0}</span> {p2?.handle || "P2"}
-              </div>
-            </div>
-          </div>
+      {/* Controls row */}
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
+        <GameTimer endTime={room.endTime} isFinished={room.status === "finished"} soundOn={soundOn} />
+        <div className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10">
+          Solved: {totalSolved}/3
+        </div>
+        <button
+          onClick={onCheckSubmissions}
+          disabled={checkDisabled || room.status !== "in_progress"}
+          className="rounded-2xl bg-emerald-400/15 px-4 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-400/30 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Check latest submissions on Codeforces (5s cooldown)"
+        >
+          {checkDisabled ? "Checking…" : "Check submissions"}
+        </button>
+        <button
+          onClick={toggleSound}
+          className="rounded-2xl bg-black/30 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-white/10 hover:bg-black/40"
+          title="Toggle sound"
+        >
+          Sound: {soundOn ? "On" : "Off"}
+        </button>
+        <button
+          onClick={onLeave}
+          className="rounded-2xl bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-100 ring-1 ring-rose-400/30 hover:bg-rose-400/15"
+        >
+          Leave
+        </button>
+      </div>
 
-          <div className="w-full sm:w-64">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>Progress</span>
-              <span className="font-semibold text-slate-100">{progressPct}%</span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-fuchsia-400" style={{ width: `${progressPct}%` }} />
-            </div>
-          </div>
+      {/* Progress bar */}
+      <div className="mb-6 rounded-3xl p-5 arcade-panel">
+        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <span>Progress</span>
+          <span className="font-semibold text-slate-100">{progressPct}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
+          <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-fuchsia-400" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
 
@@ -422,6 +442,8 @@ export default function Game({ room, onLeave }) {
             key={prob.key}
             problem={prob}
             conquered={(room.conquered || {})[prob.key]}
+            myHandle={myHandle}
+            isFinished={allSolved}
             onViewStatement={() => openStatement(prob)}
           />
         ))}
